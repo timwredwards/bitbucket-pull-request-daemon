@@ -1,0 +1,56 @@
+#!/usr/bin/ruby
+require "json"
+require 'net/http'
+
+if ARGV.length != 2
+	abort("Need username and password")
+end
+
+@localPath = __dir__ + "/requests.json"
+@pullRequestHash = {}
+
+def getLocalIds()
+	return JSON.parse(File.read(@localPath))
+end
+
+def setLocalIds(ids)
+	File.write(@localPath, JSON.generate(ids))
+end
+
+def getRemoteIds()
+	prURL = __PullRequestAPIUrl__
+	http = Net::HTTP.new(prUrl.host, prUrl.port)
+	http.use_ssl = 'https'
+	req = Net::HTTP::Get.new(prUrl.request_uri)
+	req.basic_auth(ARGV[0], ARGV[1])
+	response = http.request(req)
+	json = JSON.parse(response.body)
+	for pr in json["values"]
+		@pullRequestHash[pr["id"]] = pr
+	end
+	return @pullRequestHash.keys
+end
+
+def postUpdateWithIds(ids)
+	for id in ids
+		pr = @pullRequestHash[id]
+		author = pr["author"]["display_name"]
+		branchName = pr["source"]["branch"]["name"]
+		link = pr["links"]["diff"]["href"]
+		slackUrl = __SlackHookURL__
+		payload = {
+    		:username => "BitBucket",
+    		:text     => "New PR available from #{author} - #{branchName} - __PullRequestAPIUrl__#{id}",
+    		:icon_emoji => ":hammer:"
+  		}.to_json
+		cmd = "curl -X POST --data-urlencode 'payload=#{payload}' #{slackUrl}"
+  	system(cmd)
+	end
+end
+
+localIds = getLocalIds()
+remoteIds = getRemoteIds()
+allIds = localIds|remoteIds
+newIds = allIds - localIds
+setLocalIds(allIds)
+postUpdateWithIds(newIds)
