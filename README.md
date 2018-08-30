@@ -7,4 +7,4 @@ This tool informs users over Slack of new open pull requests. It does this as fo
 
 It was made due to lack of BitBucket webhooks for new pull requests.
 
-To use, you'll need to replace any __template__ variables.
+To use, you'll need to replace any template variables with double underscores.
